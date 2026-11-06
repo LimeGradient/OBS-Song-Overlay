@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Music Overlay</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: transparent; 
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .widget-card {
+            background: rgba(15, 15, 15, 0.9);
+            border: 1px solid #252525;
+            border-radius: 12px;
+            padding: 16px;
+            width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        #album-art {
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            object-fit: cover;
+            background-color: #222;
+            border: 1px solid #333;
+        }
+
+        .track-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+        }
+
+        #title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #album {
+            font-size: 0.9rem;
+            color: #b3b3b3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #artist {
+            font-size: 0.9rem;
+            color: #b3b3b3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: #2a2a2a;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #1db954;
+            border-radius: 3px;
+            transition: width 0.1s linear; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="widget-card">
+        <div class="header-row">
+            <img id="album-art" src="" alt="Album Art" />
+            <div class="track-info">
+                <div id="title">Awaiting music feed...</div>
+                <div id="album">No album data</div>
+                <div id="artist">No track playing</div>
+            </div>
+        </div>
+        
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateTrack(data) {
+            document.getElementById('title').textContent = data.title;
+            document.getElementById('album').textContent = data.album;
+            document.getElementById('artist').textContent = data.artist;
+            
+            const artEl = document.getElementById('album-art');
+            if (artEl.src !== data.image) {
+                artEl.src = data.image;
+            }
+        }
+
+        async function fetchSong() {
+            try {
+                const response = await fetch('/currentTrack');
+                if (response.status === 200) {
+                    const data = await response.json();
+                    updateTrack(data);
+                    document.getElementById('progress-bar').style.width = data.progress + '%';
+                } else {
+                    document.getElementById('title').textContent = "No track playing";
+                    document.getElementById('artist').textContent = "Awaiting media player";
+                }
+            } catch (err) {
+                console.error("Failed to fetch initial track metadata:", err);
+            }
+        }
+        fetchSong()
+
+        const eventSource = new EventSource('/events');
+
+        eventSource.addEventListener('trackChange', function(event) {
+            const data = JSON.parse(event.data);
+            updateTrack(data)
+        });
+
+        eventSource.addEventListener('progress', function(event) {
+            const data = JSON.parse(event.data);
+            document.getElementById('progress-bar').style.width = data.progress + '%';
+        });
+
+        eventSource.onerror = function() {
+            document.getElementById('title').textContent = "Offline";
+            document.getElementById('artist').textContent = "Disconnected from Server";
+        };
+    </script>
+</body>
+</html>
